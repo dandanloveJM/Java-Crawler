@@ -17,7 +17,6 @@ public class Main {
         try (CloseableHttpResponse response1 = httpclient.execute(httpGet)) {
             System.out.println(response1.getStatusLine());
             HttpEntity entity1 = response1.getEntity();
-            //EntityUtils.consume(entity1);
             System.out.println(EntityUtils.toString(entity1));
         } catch (ClientProtocolException e) {
             e.printStackTrace();
