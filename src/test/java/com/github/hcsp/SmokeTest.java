@@ -1,4 +1,4 @@
-package com.github.com.github.hcsp;
+package com.github.hcsp;
 
 import org.junit.jupiter.api.Test;
 

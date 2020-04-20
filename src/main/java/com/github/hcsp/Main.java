@@ -15,57 +15,53 @@ import org.jsoup.select.Elements;
 import java.io.File;
 import java.io.IOException;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.stream.Collectors;
 
 
 public class Main {
     private static final String USER_NAME = "root";
     private static final String USER_PASSWORD = "dandan";
 
-    private static List<String> loadUrlsFromDatabase(Connection connection, String sql) throws SQLException {
-        List<String> results = new ArrayList<>();
+    private static String getNextLink(Connection connection, String sql) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(sql);
              ResultSet resultSet = statement.executeQuery()) {
             while (resultSet.next()) {
-                results.add(resultSet.getString(1));
+                return resultSet.getString(1);
             }
         }
-        return results;
+        return null;
     }
+
+    private static String getNextLinkThenDelete(Connection connection) throws SQLException {
+        //先从数据库里拿出来一个链接，(拿出来并从数据库中删除掉)，准备处理之
+        String link = getNextLink(connection, "select link from LINKS_TO_BE_PROCESSED limit 1");
+        if (link != null) {
+            updateDatabase(connection, link, "delete from LINKS_TO_BE_PROCESSED where link = ?");
+        }
+        return link;
+    }
+
 
     @SuppressFBWarnings("DMI_CONSTANT_DB_PASSWORD")
     public static void main(String[] args) throws IOException, SQLException {
-        while (true) {
-            //从数据库加载即将处理的链接
-            Connection connection = getConnection();
-            List<String> linkpool = loadUrlsFromDatabase(connection, "select link from LINKS_TO_BE_PROCESSED");
-            if (linkpool.isEmpty()) {
-                break;
-            }
-            //arraylist从尾部删除更有效率, remove会返回删掉的元素
-            //先在数据库中拿出来一个Link，再在数据库里删掉这个Link
-            String link = linkpool.remove(linkpool.size() - 1);
-            try (PreparedStatement statement = connection.prepareStatement("delete from LINKS_TO_BE_PROCESSED where link = ?")) {
-                statement.setString(1, link);
-                statement.executeUpdate();
-            }
-
+        Connection connection = getConnection();
+        String link;
+        //从数据库中加载下一个链接，如果能加载到，则进行循环
+        while ((link = getNextLinkThenDelete(connection)) != null) {
             //询问数据库当前链接是不是已经被处理过了
             if (isLinkProcessed(connection, link)) {
                 continue;
             }
             if (IsInterestedLink(link)) {
+                System.out.println(link);
                 //这是我们感兴趣的，我们只处理新浪站内的链接
                 Document doc = httpGetAndParseHtml(link);
                 //找到有用的a链接且放进链接池
                 parseUrlsFromPageAndStoreIntoDatabase(connection, doc);
                 //假如这是一个新闻的详情页面，就存入数据库，否则什么都不做
-                storeIntoDatabaseIfItIsNews(doc);
+                storeIntoDatabaseIfItIsNews(connection, doc, link);
                 //把已经处理过的链接放进LINKS_ALREADY_PROCESSED
-                insertLinkIntoDatabase(connection, link, "insert into LINKS_ALREADY_PROCESSED (link) values (?)");
-
-
+                updateDatabase(connection, link, "insert into LINKS_ALREADY_PROCESSED (link) values (?)");
             }
 
 
@@ -76,7 +72,7 @@ public class Main {
         for (Element aTag : doc.select("a")) {
             String href = aTag.attr("href");
             if (IsInterestedLink(href)) {
-                insertLinkIntoDatabase(connection, href, "insert into LINKS_TO_BE_PROCESSED (link) values (?)");
+                updateDatabase(connection, href, "insert into LINKS_TO_BE_PROCESSED (link) values (?)");
             }
         }
     }
@@ -104,7 +100,7 @@ public class Main {
         return false;
     }
 
-    private static void insertLinkIntoDatabase(Connection connection, String link, String sql) throws SQLException {
+    private static void updateDatabase(Connection connection, String link, String sql) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, link);
             statement.executeUpdate();
@@ -112,12 +108,19 @@ public class Main {
     }
 
 
-    private static void storeIntoDatabaseIfItIsNews(Document doc) {
+    private static void storeIntoDatabaseIfItIsNews(Connection connection, Document doc, String link) throws SQLException {
         Elements articleTags = doc.select("article");
         if (!articleTags.isEmpty()) {
             for (Element articleTag : articleTags) {
                 String title = articleTag.child(0).text();
-                System.out.println(title);
+                String content = articleTag.select("p").stream().map(Element::text).collect(Collectors.joining("\n"));
+                try (PreparedStatement statement = connection.prepareStatement("insert into NEWS (TITLE, CONTENT, URL, CREATED_AT, MODIFIED_AT) VALUES ( ?,?,?,NOW(), NOW())")) {
+                    statement.setString(1, title);
+                    statement.setString(2, content);
+                    statement.setString(3, link);
+                    statement.executeUpdate();
+                }
+
             }
         }
     }
@@ -132,8 +135,6 @@ public class Main {
         httpGet.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.79 Safari/537.36");
 
         try (CloseableHttpResponse response1 = httpclient.execute(httpGet)) {
-            System.out.println(response1.getStatusLine());
-            System.out.println(link);
             HttpEntity entity1 = response1.getEntity();
             String html = EntityUtils.toString(entity1);
 
