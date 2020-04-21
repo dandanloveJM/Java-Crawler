@@ -1,2 +1,2 @@
-insert into LINKS_TO_BE_PROCESSED(link)
+insert into LINKS_TO_BE_PROCESSED (LINK)
 values ('https://sina.cn')

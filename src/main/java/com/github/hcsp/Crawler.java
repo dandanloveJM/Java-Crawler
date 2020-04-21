@@ -18,21 +18,11 @@ import java.util.stream.Collectors;
 
 
 public class Crawler {
-    JdbcCrawlerDao dao = new JdbcCrawlerDao();
-
-    private String getNextLinkThenDelete() throws SQLException {
-        //先从数据库里拿出来一个链接，(拿出来并从数据库中删除掉)，准备处理之
-        String link = dao.getNextLink("select link from LINKS_TO_BE_PROCESSED limit 1");
-        if (link != null) {
-            dao.updateDatabase(link, "delete from LINKS_TO_BE_PROCESSED where link = ?");
-        }
-        return link;
-    }
-
+    CrawlerDao dao = new MybatisCrawlerDao();
     public void run() throws SQLException, IOException {
         String link;
         //从数据库中加载下一个链接，如果能加载到，则进行循环
-        while ((link = getNextLinkThenDelete()) != null) {
+        while ((link = dao.getNextLinkThenDelete()) != null) {
             //询问数据库当前链接是不是已经被处理过了
             if (dao.isLinkProcessed(link)) {
                 continue;
@@ -46,7 +36,8 @@ public class Crawler {
                 //假如这是一个新闻的详情页面，就存入数据库，否则什么都不做
                 storeIntoDatabaseIfItIsNews(doc, link);
                 //把已经处理过的链接放进LINKS_ALREADY_PROCESSED
-                dao.updateDatabase(link, "insert into LINKS_ALREADY_PROCESSED (link) values (?)");
+                dao.insertProcossedLink(link);
+                //dao.updateDatabase(link, "insert into LINKS_ALREADY_PROCESSED (link) values (?)");
             }
 
 
@@ -62,7 +53,7 @@ public class Crawler {
         for (Element aTag : doc.select("a")) {
             String href = aTag.attr("href");
             if (IsInterestedLink(href)) {
-                dao.updateDatabase(href, "insert into LINKS_TO_BE_PROCESSED (link) values (?)");
+                dao.insertLinkToBeProcessed(href);
             }
         }
     }

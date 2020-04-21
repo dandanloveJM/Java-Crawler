@@ -21,8 +21,16 @@ public class JdbcCrawlerDao implements CrawlerDao {
         }
 
     }
+    public String getNextLinkThenDelete() throws SQLException {
+        //先从数据库里拿出来一个链接，(拿出来并从数据库中删除掉)，准备处理之
+        String link = getNextLink("select link from LINKS_TO_BE_PROCESSED limit 1");
+        if (link != null) {
+            updateDatabase(link, "delete from LINKS_TO_BE_PROCESSED where link = ?");
+        }
+        return link;
+    }
 
-    public String getNextLink(String sql) throws SQLException {
+    String getNextLink(String sql) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(sql);
              ResultSet resultSet = statement.executeQuery()) {
             while (resultSet.next()) {
@@ -63,5 +71,15 @@ public class JdbcCrawlerDao implements CrawlerDao {
             statement.setString(3, link);
             statement.executeUpdate();
         }
+    }
+
+    @Override
+    public void insertProcossedLink(String link) {
+
+    }
+
+    @Override
+    public void insertLinkToBeProcessed(String href) {
+
     }
 }
