@@ -1,6 +1,6 @@
 package com.github.hcsp;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -17,52 +17,49 @@ import java.sql.*;
 import java.util.stream.Collectors;
 
 
-public class Crawler {
-    JdbcCrawlerDao dao = new JdbcCrawlerDao();
+public class Crawler extends Thread {
+    private CrawlerDao dao;
 
-    private String getNextLinkThenDelete() throws SQLException {
-        //先从数据库里拿出来一个链接，(拿出来并从数据库中删除掉)，准备处理之
-        String link = dao.getNextLink("select link from LINKS_TO_BE_PROCESSED limit 1");
-        if (link != null) {
-            dao.updateDatabase(link, "delete from LINKS_TO_BE_PROCESSED where link = ?");
-        }
-        return link;
+    public Crawler(CrawlerDao dao) {
+        this.dao = dao;
     }
 
-    public void run() throws SQLException, IOException {
-        String link;
-        //从数据库中加载下一个链接，如果能加载到，则进行循环
-        while ((link = getNextLinkThenDelete()) != null) {
-            //询问数据库当前链接是不是已经被处理过了
-            if (dao.isLinkProcessed(link)) {
-                continue;
+    public void run(){
+        try {
+            String link;
+            //从数据库中加载下一个链接，如果能加载到，则进行循环
+            while ((link = dao.getNextLinkThenDelete()) != null) {
+                //询问数据库当前链接是不是已经被处理过了
+                if (dao.isLinkProcessed(link)) {
+                    continue;
+                }
+                if (IsInterestedLink(link)) {
+                    System.out.println(link);
+                    //这是我们感兴趣的，我们只处理新浪站内的链接
+                    Document doc = httpGetAndParseHtml(link);
+                    //找到有用的a链接且放进链接池
+                    parseUrlsFromPageAndStoreIntoDatabase(doc);
+                    //假如这是一个新闻的详情页面，就存入数据库，否则什么都不做
+                    storeIntoDatabaseIfItIsNews(doc, link);
+                    //把已经处理过的链接放进LINKS_ALREADY_PROCESSED
+                    dao.insertProcossedLink(link);
+                    //dao.updateDatabase(link, "insert into LINKS_ALREADY_PROCESSED (link) values (?)");
+                }
+
+
             }
-            if (IsInterestedLink(link)) {
-                System.out.println(link);
-                //这是我们感兴趣的，我们只处理新浪站内的链接
-                Document doc = httpGetAndParseHtml(link);
-                //找到有用的a链接且放进链接池
-                parseUrlsFromPageAndStoreIntoDatabase(doc);
-                //假如这是一个新闻的详情页面，就存入数据库，否则什么都不做
-                storeIntoDatabaseIfItIsNews(doc, link);
-                //把已经处理过的链接放进LINKS_ALREADY_PROCESSED
-                dao.updateDatabase(link, "insert into LINKS_ALREADY_PROCESSED (link) values (?)");
-            }
-
-
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
-    @SuppressFBWarnings("DMI_CONSTANT_DB_PASSWORD")
-    public static void main(String[] args) throws IOException, SQLException {
-        new Crawler().run();
-    }
+
 
     private void parseUrlsFromPageAndStoreIntoDatabase(Document doc) throws SQLException {
         for (Element aTag : doc.select("a")) {
             String href = aTag.attr("href");
             if (IsInterestedLink(href)) {
-                dao.updateDatabase(href, "insert into LINKS_TO_BE_PROCESSED (link) values (?)");
+                dao.insertLinkToBeProcessed(href);
             }
         }
     }

@@ -56,6 +56,27 @@
             <version>4.0.2</version>
             <scope>provided</scope>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.mybatis/mybatis -->
+        <dependency>
+            <groupId>org.mybatis</groupId>
+            <artifactId>mybatis</artifactId>
+            <version>3.5.4</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>8.0.19</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/org.elasticsearch.client/elasticsearch-rest-high-level-client -->
+        <dependency>
+            <groupId>org.elasticsearch.client</groupId>
+            <artifactId>elasticsearch-rest-high-level-client</artifactId>
+            <version>7.6.2</version>
+        </dependency>
+
+
+
 
 
     </dependencies>
@@ -121,9 +142,9 @@
                 <artifactId>flyway-maven-plugin</artifactId>
                 <version>6.3.3</version>
                 <configuration>
-                    <url>jdbc:h2:file:d:/java-project/news</url>
+                    <url>jdbc:mysql://localhost:3306/NEWS?useUnicode=true&amp;characterEncoding=utf8</url>
                     <user>root</user>
-                    <password>dandan</password>
+                    <password>root</password>
                 </configuration>
                 <dependencies>
                     <dependency>
