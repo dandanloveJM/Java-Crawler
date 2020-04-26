@@ -6,20 +6,20 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.MultiMatchQueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.Charset;
 
 public class ElasticsearchEngine {
     public static void main(String[] args) throws IOException {
         while (true) {
             System.out.println("please input a search keyword");
             //从命令行读取参数
-            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in, Charset.defaultCharset()));
             String keyword = reader.readLine();
             System.out.println(keyword);
             search(keyword);
