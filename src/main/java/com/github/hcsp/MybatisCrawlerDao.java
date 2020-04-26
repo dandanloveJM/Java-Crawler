@@ -27,10 +27,9 @@ public class MybatisCrawlerDao implements CrawlerDao {
     }
 
     @Override
-    public String getNextLinkThenDelete() throws SQLException {
+    public synchronized String getNextLinkThenDelete() throws SQLException {
         try (SqlSession session = sqlSessionFactory.openSession(true)) {
             String link = session.selectOne("com.github.hcsp.MyMapper.selectNextAvailableLink");
-            System.out.println("llll" + link);
             if (link != null) {
                 session.delete("com.github.hcsp.MyMapper.deleteLink", link);
             }
@@ -48,7 +47,6 @@ public class MybatisCrawlerDao implements CrawlerDao {
 
     @Override
     public void storeNewsIntoDatabase(String link, String title, String content) throws SQLException {
-        System.out.println("add a news");
         try (SqlSession sqlSession = sqlSessionFactory.openSession(true)) {
             sqlSession.insert("com.github.hcsp.MyMapper.insertNews", new News(link, content, title));
         }
@@ -70,7 +68,6 @@ public class MybatisCrawlerDao implements CrawlerDao {
     @Override
     public void insertLinkToBeProcessed(String link) {
         //insert into links_to_Be_processed (link) values (#link)
-        System.out.println("add a link");
         Map<String, Object> param = new HashMap<>();
         param.put("tableName", "links_to_be_processed");
         param.put("link", link);
